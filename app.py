@@ -3,18 +3,24 @@ import yt_dlp
 import os
 from flask import Flask, request
 
+# ❗ আপনার নতুন টোকেনটি এখানে আপডেট করা হয়েছে
 TOKEN = "7452913125:AAHAxtuTV6lR28LRLVD8Ms9ccKDlCPDYTco"
 bot = telebot.TeleBot(TOKEN)
 
 app = Flask(__name__)
 
-# Render-এর দেওয়া আপনার আসল সাবডোমেন লিঙ্কটি এখানে দিতে হবে
-# আপনার স্ক্রিনশট অনুযায়ী লিঙ্কটি হলো: youtube-cucg.onrender.com
+# Render-এর আপনার সাবডোমেন লিঙ্ক
 RENDER_URL = "https://youtube-cucg.onrender.com"
 
 @app.route('/')
 def home():
-    return "Telegram Bot is active and running via Webhook!"
+    # 💥 এখানে ব্রাউজারে ঢোকার সাথে সাথে প্রতিবার Webhook নতুন করে সেট হবে
+    try:
+        bot.remove_webhook()
+        bot.set_webhook(url=f"{RENDER_URL}/{TOKEN}")
+        return "Telegram Bot is active and Webhook successfully updated!"
+    except Exception as e:
+        return f"Bot is running, but Webhook error: {str(e)}"
 
 # টেলিগ্রাম এই রুটে মেসেজ পাঠাবে
 @app.route(f'/{TOKEN}', methods=['POST'])
@@ -68,14 +74,6 @@ def download_and_send_video(message):
         bot.edit_message_text(f"❌ দুঃখিত! ভিডিওটি পাঠানো যায়নি। ফাইলটি খুব বড় হতে পারে অথবা কুকিজ আপডেট করতে হবে।\nError: {str(e)}", message.chat.id, msg.message_id)
         if 'filename' in locals() and os.path.exists(filename):
             os.remove(filename)
-
-# সার্ভার চালু হওয়ার সময় Webhook সেট করা
-try:
-    bot.remove_webhook()
-    bot.set_webhook(url=f"{RENDER_URL}/{TOKEN}")
-    print("Webhook successfully set!")
-except Exception as e:
-    print(f"Error setting webhook: {e}")
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
