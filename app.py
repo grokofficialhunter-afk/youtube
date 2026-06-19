@@ -4,14 +4,17 @@ import os
 import threading
 from flask import Flask
 
-# আপনার দেওয়া বটের আসল টোকেন
-TOKEN = "7452913125:AAFd4rlPMXZ_pYGFs1CzNfWuUSwhdHar5Xs"
+TOKEN = "7452913125:AAE0nVKPaPe6RkIS3gV51MSlUbHg-QwvRcM"
 bot = telebot.TeleBot(TOKEN)
 
 app = Flask(__name__)
 
-# Gunicorn সার্ভার যেন বটটিকে ব্যাকগ্রাউন্ডে চালু করতে পারে, তাই এটিকে এখানে রাখা হয়েছে
-threading.Thread(target=bot.infinity_polling, daemon=True).start()
+try:
+    bot.remove_webhook()
+except Exception:
+    pass
+
+threading.Thread(target=bot.infinity_polling, timeout=60, long_polling_timeout=60, daemon=True).start()
 
 @app.route('/')
 def home():
@@ -31,11 +34,18 @@ def download_and_send_video(message):
     msg = bot.reply_to(message, "⏳ ভিডিওটি প্রসেস করা হচ্ছে... কিছু সময় অপেক্ষা করুন।")
 
     try:
-        # ডাউনলোড অপশন কনফিগারেশন (টেলিগ্রামের ৫০ মেগাবাইট লিমিটের মধ্যে রাখার চেষ্টা করবে)
+        # কুকিজ ফাইলটি প্রজেক্ট ডিরেক্টরিতে আছে কি না চেক করা
+        cookies_path = 'cookies.txt'
+        if not os.path.exists(cookies_path):
+            # যদি ফাইল না থাকে, তবে খালি ফাইল তৈরি করবে এরর এড়াতে
+            with open(cookies_path, 'w') as f: pass
+
+        # ডাউনলোড অপশন কনফিগারেশন
         ydl_opts = {
             'format': 'best[ext=mp4][filesize<50M]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best',
             'outtmpl': '%(id)s.%(ext)s',
-            'max_filesize': 50 * 1024 * 1024 # ৫০ মেগাবাইটের বেশি হলে এরর দেবে
+            'max_filesize': 50 * 1024 * 1024,
+            'cookiefile': cookies_path, # 👈 এখানে কুকিজ ফাইলটি অ্যাড করা হয়েছে
         }
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -44,16 +54,14 @@ def download_and_send_video(message):
             
             bot.edit_message_text("📤 ভিডিওটি টেলিগ্রামে আপলোড করা হচ্ছে...", message.chat.id, msg.message_id)
             
-            # টেলিগ্রামে সরাসরি ভিডিও ফাইল পাঠানো
             with open(filename, 'rb') as video:
                 bot.send_video(message.chat.id, video, caption=info.get('title'))
             
-            # কাজ শেষ হলে সার্ভার থেকে ফাইল ডিলিট করা
             os.remove(filename)
             bot.delete_message(message.chat.id, msg.message_id)
 
     except Exception as e:
-        bot.edit_message_text(f"❌ দুঃখিত! ভিডিওটি পাঠানো যায়নি। ফাইলটি খুব বড় হতে পারে।\nError: {str(e)}", message.chat.id, msg.message_id)
+        bot.edit_message_text(f"❌ দুঃখিত! ভিডিওটি পাঠানো যায়নি। ফাইলটি খুব বড় হতে পারে অথবা কুকিজ আপডেট করতে হবে।\nError: {str(e)}", message.chat.id, msg.message_id)
         if 'filename' in locals() and os.path.exists(filename):
             os.remove(filename)
 
