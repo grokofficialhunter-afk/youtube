@@ -9,12 +9,14 @@ bot = telebot.TeleBot(TOKEN)
 
 app = Flask(__name__)
 
+# পুরনো সব ঝুলন্ত রিকোয়েস্ট বা কনফ্লিক্ট মুছে ফেলার জন্য
 try:
     bot.remove_webhook()
 except Exception:
     pass
 
-threading.Thread(target=bot.infinity_polling, timeout=60, long_polling_timeout=60, daemon=True).start()
+# সঠিক থ্রেডিং কনফিগারেশন (ভুলটি এখানে ফিক্স করা হয়েছে)
+threading.Thread(target=bot.infinity_polling, kwargs={'timeout': 60, 'long_polling_timeout': 60}, daemon=True).start()
 
 @app.route('/')
 def home():
@@ -34,18 +36,15 @@ def download_and_send_video(message):
     msg = bot.reply_to(message, "⏳ ভিডিওটি প্রসেস করা হচ্ছে... কিছু সময় অপেক্ষা করুন।")
 
     try:
-        # কুকিজ ফাইলটি প্রজেক্ট ডিরেক্টরিতে আছে কি না চেক করা
         cookies_path = 'cookies.txt'
         if not os.path.exists(cookies_path):
-            # যদি ফাইল না থাকে, তবে খালি ফাইল তৈরি করবে এরর এড়াতে
             with open(cookies_path, 'w') as f: pass
 
-        # ডাউনলোড অপশন কনফিগারেশন
         ydl_opts = {
             'format': 'best[ext=mp4][filesize<50M]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best',
             'outtmpl': '%(id)s.%(ext)s',
             'max_filesize': 50 * 1024 * 1024,
-            'cookiefile': cookies_path, # 👈 এখানে কুকিজ ফাইলটি অ্যাড করা হয়েছে
+            'cookiefile': cookies_path,
         }
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
