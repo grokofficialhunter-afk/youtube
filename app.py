@@ -1,26 +1,31 @@
 import telebot
 import yt_dlp
 import os
-import threading
-from flask import Flask
+from flask import Flask, request
 
 TOKEN = "7452913125:AAE0nVKPaPe6RkIS3gV51MSlUbHg-QwvRcM"
 bot = telebot.TeleBot(TOKEN)
 
 app = Flask(__name__)
 
-# পুরনো সব ঝুলন্ত রিকোয়েস্ট বা কনফ্লিক্ট মুছে ফেলার জন্য
-try:
-    bot.remove_webhook()
-except Exception:
-    pass
-
-# সঠিক থ্রেডিং কনফিগারেশন (ভুলটি এখানে ফিক্স করা হয়েছে)
-threading.Thread(target=bot.infinity_polling, kwargs={'timeout': 60, 'long_polling_timeout': 60}, daemon=True).start()
+# Render-এর দেওয়া আপনার আসল সাবডোমেন লিঙ্কটি এখানে দিতে হবে
+# আপনার স্ক্রিনশট অনুযায়ী লিঙ্কটি হলো: youtube-cucg.onrender.com
+RENDER_URL = "https://youtube-cucg.onrender.com"
 
 @app.route('/')
 def home():
-    return "Telegram Bot is active and running!"
+    return "Telegram Bot is active and running via Webhook!"
+
+# টেলিগ্রাম এই রুটে মেসেজ পাঠাবে
+@app.route(f'/{TOKEN}', methods=['POST'])
+def receive_update():
+    if request.headers.get('content-type') == 'application/json':
+        json_string = request.get_data().decode('utf-8')
+        update = telebot.types.Update.de_json(json_string)
+        bot.process_new_updates([update])
+        return ''
+    else:
+        return 'Invalid Request', 403
 
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
@@ -63,6 +68,14 @@ def download_and_send_video(message):
         bot.edit_message_text(f"❌ দুঃখিত! ভিডিওটি পাঠানো যায়নি। ফাইলটি খুব বড় হতে পারে অথবা কুকিজ আপডেট করতে হবে।\nError: {str(e)}", message.chat.id, msg.message_id)
         if 'filename' in locals() and os.path.exists(filename):
             os.remove(filename)
+
+# সার্ভার চালু হওয়ার সময় Webhook সেট করা
+try:
+    bot.remove_webhook()
+    bot.set_webhook(url=f"{RENDER_URL}/{TOKEN}")
+    print("Webhook successfully set!")
+except Exception as e:
+    print(f"Error setting webhook: {e}")
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
